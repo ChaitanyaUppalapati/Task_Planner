@@ -26,6 +26,12 @@ def data_dir() -> Path:
     return path
 
 
+def resource_path(relative: str) -> Path:
+    """Locate bundled read-only resources both from source and in a PyInstaller build."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+    return base / relative
+
+
 def db_path() -> Path:
     return data_dir() / "taskplanner.db"
 

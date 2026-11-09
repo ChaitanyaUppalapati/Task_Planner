@@ -73,8 +73,7 @@ class Engine:
         if not task.milestones:
             task.milestones = [Milestone(title="Done", guess_minutes=task.par_minutes)]
             estimator.distribute_par(task)
-        for m in task.milestones:
-            self._ensure_baseline(m)
+        self._capture_baselines(task)
         self.db.save_task(task)
         self.emit("task_changed", task_id=task.id)
         return task
@@ -91,8 +90,7 @@ class Engine:
             # Locked par: new milestones get a share carved from remaining guesses
             # but the task total stays fixed.
             estimator.distribute_par(task)
-        for m in task.milestones:
-            self._ensure_baseline(m)
+        self._capture_baselines(task)
         self.db.save_task(task)
         self.emit("task_changed", task_id=task.id)
         return task
@@ -117,8 +115,7 @@ class Engine:
                 task.original_par = task.par_minutes
         if task.status == TaskStatus.TODO:
             task.status = TaskStatus.ACTIVE
-        for m in task.milestones:
-            self._ensure_baseline(m)
+        self._capture_baselines(task)
         self.db.save_task(task)
         self.emit("task_changed", task_id=task.id)
         return task
@@ -133,13 +130,49 @@ class Engine:
             self.db.delete_task(task.id)
         self.emit("task_changed", task_id=task.id)
 
-    def _ensure_baseline(self, m: Milestone) -> None:
-        if m.source_type == SourceType.MANUAL or m.baseline:
-            return
-        try:
-            m.baseline = sources.capture_baseline(m)
-        except sources.SourceError as e:
-            m.evidence = f"⚠ {e}"
+    @staticmethod
+    def _source_key(m: Milestone) -> tuple | None:
+        """Milestones sharing a key measure the same evidence and run in sequence.
+
+        Commit-message milestones look for their own text, so they are independent.
+        """
+        cfg = m.source_config or {}
+        if m.source_type == SourceType.MANUAL:
+            return None
+        if m.source_type == SourceType.GIT:
+            if cfg.get("metric") == "message":
+                return None
+            return ("git", cfg.get("repo"))
+        if m.source_type == SourceType.DOCUMENT:
+            return ("doc", cfg.get("path"))
+        return ("folder", cfg.get("path"), cfg.get("pattern"))
+
+    def _capture_baselines(self, task: Task) -> list[Milestone]:
+        """Give the next eligible auto-milestone of each source its starting point.
+
+        Without sequencing, two "1 new commit" milestones on one repo would both
+        complete on the first commit. Later milestones wait (no baseline) until the
+        earlier one on the same source is done, then start counting from there.
+        """
+        changed = []
+        active_keys: set[tuple] = set()
+        for m in task.milestones:
+            if m.source_type == SourceType.MANUAL or m.progress >= 1.0:
+                continue
+            key = self._source_key(m)
+            if key is not None:
+                if key in active_keys:
+                    continue  # an earlier milestone on this source is still running
+                active_keys.add(key)
+            if m.baseline:
+                continue
+            try:
+                m.baseline = sources.capture_baseline(m)
+                m.evidence = "measuring from now"
+            except sources.SourceError as e:
+                m.evidence = f"⚠ {e}"
+            changed.append(m)
+        return changed
 
     # ------------------------------------------------------------ progress
     def set_milestone_progress(
@@ -168,6 +201,9 @@ class Engine:
         self.emit("progress", task_id=task.id, milestone_id=milestone.id, earned=earned)
         if milestone.done_at == now:
             self.emit("milestone_done", task_id=task.id, title=milestone.title)
+            for m in self._capture_baselines(task):
+                if m.id is not None:
+                    self.db.save_milestone(m)
         if all(m.progress >= 1.0 for m in task.milestones) and task.status != TaskStatus.DONE:
             self.complete_task(task)
 
@@ -400,7 +436,8 @@ class Engine:
 
     # ----------------------------------------------------------------- plan
     def commit_plan(self, day: str, tasks: Sequence[Task]) -> None:
-        entries = [(t.id, t.remaining_par) for t in tasks if t.id is not None]
-        self.db.set_plan(day, entries, self.settings.available_minutes)
+        entries = [(t.id, t.remaining_par) for t in tasks
+                   if t.id is not None and t.remaining_par > 0]
+        self.db.set_plan(day, entries, self.settings.available_minutes, committed_at=self.clock())
         self.emit("plan_changed", day=day)
         self.check_achievements()

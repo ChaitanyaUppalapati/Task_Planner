@@ -102,3 +102,38 @@ def test_auto_source_readings_apply(engine, db, tmp_path):
     doc.write_text("hello world " + "word " * 20)
     engine.apply_readings(engine.read_sources([db.get_task(t.id)]))
     assert db.get_task(t.id).status == TaskStatus.DONE
+
+
+def test_same_source_milestones_run_in_sequence(engine, db, tmp_path):
+    import subprocess
+
+    from taskplanner.core.models import SourceType
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*a):
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@e.com")
+    git("config", "user.name", "t")
+
+    def commit(name):
+        (repo / name).write_text(name)
+        git("add", ".")
+        git("commit", "-qm", name)
+
+    cfg = {"repo": str(repo), "metric": "commits", "target": 1}
+    t = engine.create_task(Task(title="x", user_guess_minutes=60, milestones=[
+        Milestone("first", 30, source_type=SourceType.GIT, source_config=dict(cfg)),
+        Milestone("second", 30, source_type=SourceType.GIT, source_config=dict(cfg))]))
+    assert t.milestones[0].baseline and not t.milestones[1].baseline
+    commit("a")
+    engine.apply_readings(engine.read_sources([db.get_task(t.id)]))
+    t = db.get_task(t.id)
+    assert t.milestones[0].progress == 1 and t.milestones[1].progress == 0
+    assert t.milestones[1].baseline  # second starts counting after the first finished
+    commit("b")
+    engine.apply_readings(engine.read_sources([db.get_task(t.id)]))
+    assert db.get_task(t.id).status == TaskStatus.DONE

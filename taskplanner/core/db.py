@@ -121,6 +121,14 @@ MIGRATIONS: list[str] = [
         unlocked_at REAL NOT NULL
     );
     """,
+    # v2: task-level links to the repo/document/folder the work lives in
+    """
+    ALTER TABLE tasks ADD COLUMN links TEXT NOT NULL DEFAULT '{}';
+    """,
+    # v3: plan commit time (only output earned after committing counts as delivered)
+    """
+    ALTER TABLE plans ADD COLUMN committed_at REAL NOT NULL DEFAULT 0;
+    """,
 ]
 
 
@@ -220,6 +228,7 @@ class Database:
             "completed_at": task.completed_at,
             "badge": task.badge.value if task.badge else None,
             "actual_minutes": task.actual_minutes,
+            "links": json.dumps(task.links),
         }
         with self.transaction():
             if task.id is None:
@@ -349,6 +358,7 @@ class Database:
                     completed_at=r["completed_at"],
                     badge=ParBadge(r["badge"]) if r["badge"] else None,
                     actual_minutes=r["actual_minutes"],
+                    links=json.loads(r["links"] or "{}"),
                     milestones=by_task.get(r["id"], []),
                 )
             )
@@ -434,14 +444,16 @@ class Database:
         self.execute("DELETE FROM activity WHERE end_ts < ?", (ts,))
 
     # ------------------------------------------------------------------ plans
-    def set_plan(self, day: str, entries: list[tuple[int, float]], available: float) -> None:
+    def set_plan(self, day: str, entries: list[tuple[int, float]], available: float,
+                 committed_at: float | None = None) -> None:
+        committed_at = committed_at if committed_at is not None else time.time()
         with self.transaction():
             self.execute("DELETE FROM plans WHERE date = ?", (day,))
             for pos, (task_id, minutes) in enumerate(entries):
                 self.execute(
-                    "INSERT INTO plans(date, task_id, position, planned_minutes, available_minutes) "
-                    "VALUES(?, ?, ?, ?, ?)",
-                    (day, task_id, pos, minutes, available),
+                    "INSERT INTO plans(date, task_id, position, planned_minutes, "
+                    "available_minutes, committed_at) VALUES(?, ?, ?, ?, ?, ?)",
+                    (day, task_id, pos, minutes, available, committed_at),
                 )
 
     def get_plan(self, day: str) -> list[sqlite3.Row]:

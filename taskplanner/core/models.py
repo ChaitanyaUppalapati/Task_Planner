@@ -125,6 +125,8 @@ class Task:
     badge: ParBadge | None = None
     actual_minutes: float = 0.0
     milestones: list[Milestone] = field(default_factory=list)
+    # {"repo": path, "document": path, "folder": path, "folder_pattern": glob}
+    links: dict[str, str] = field(default_factory=dict)
     id: int | None = None
 
     @property

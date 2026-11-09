@@ -24,6 +24,13 @@ def _norm(items: Sequence[str]) -> list[str]:
 def implicit_keywords(task: Task) -> list[str]:
     """Window-title keywords implied by a task's progress sources."""
     words: list[str] = []
+    links = task.links or {}
+    for key in ("repo", "folder"):
+        if links.get(key):
+            words.append(Path(links[key]).name.lower())
+    if links.get("document"):
+        doc = Path(links["document"])
+        words += [doc.name.lower(), doc.stem.lower()]
     for m in task.milestones:
         cfg = m.source_config or {}
         path = cfg.get("path") or cfg.get("repo")

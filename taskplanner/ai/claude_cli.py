@@ -66,6 +66,8 @@ For each milestone choose the best automatic evidence of real progress:
 - document_words: progress = new words in the linked document (set target = words)
 - folder_files: done when `target` new files appear in the linked folder (`pattern` = glob)
 - manual: user ticks it off (use only when nothing on disk proves progress)
+Milestones using the same repo/document/folder are measured one after another, so each \
+target counts only that milestone's own new commits/lines/words/files.
 Only use git_* if a repository is linked, document_words if a document is linked, \
 folder_files if a folder is linked.
 
@@ -140,7 +142,10 @@ def _command_prefix(exe: str) -> tuple[list[str], bool]:
 
 
 def build_prompt(task: Task) -> str:
-    repo = document = folder = "none"
+    links = task.links or {}
+    repo = links.get("repo") or "none"
+    document = links.get("document") or "none"
+    folder = links.get("folder") or "none"
     for m in task.milestones:
         cfg = m.source_config or {}
         if m.source_type == SourceType.GIT and cfg.get("repo"):
@@ -194,10 +199,12 @@ def parse_cli_output(stdout: str) -> dict:
 
 
 def to_breakdown(data: dict, task: Task) -> Breakdown:
-    links = {m.source_type: m.source_config for m in task.milestones if m.source_config}
-    git_cfg = links.get(SourceType.GIT, {})
-    doc_cfg = links.get(SourceType.DOCUMENT, {})
-    folder_cfg = links.get(SourceType.FOLDER, {})
+    by_type = {m.source_type: m.source_config for m in task.milestones if m.source_config}
+    tl = task.links or {}
+    git_cfg = {"repo": tl["repo"]} if tl.get("repo") else by_type.get(SourceType.GIT, {})
+    doc_cfg = {"path": tl["document"]} if tl.get("document") else by_type.get(SourceType.DOCUMENT, {})
+    folder_cfg = ({"path": tl["folder"], "pattern": tl.get("folder_pattern", "*")}
+                  if tl.get("folder") else by_type.get(SourceType.FOLDER, {}))
 
     milestones = []
     for item in data.get("milestones", [])[:12]:

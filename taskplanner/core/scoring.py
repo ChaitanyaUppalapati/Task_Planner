@@ -76,7 +76,7 @@ def score_components(stats: DayStats, goal_minutes: float) -> DayStats:
     else:
         stats.plan_score = 0.0
 
-    if stats.spent > 0:
+    if stats.spent > 0 and stats.earned > 0:  # focus without output is worth nothing
         distract_ratio = stats.distracting / stats.spent
         hours = max(stats.spent / 60.0, 0.5)
         excess_switch = max(0.0, stats.switches / hours - SWITCHES_PER_HOUR_OK)
@@ -145,8 +145,9 @@ def compute_day(db: Database, day: str, goal_minutes: float, available_minutes: 
         stats.planned = sum(p["planned_minutes"] for p in plan)
         stats.available = plan[0]["available_minutes"]
         planned_ids = [p["task_id"] for p in plan]
+        since = max(start, float(plan[0]["committed_at"] or start))
         stats.planned_earned = min(
-            stats.planned, db.earned_between(start, end, planned_ids)
+            stats.planned, db.earned_between(since, end, planned_ids)
         )
     else:
         stats.available = available_minutes
