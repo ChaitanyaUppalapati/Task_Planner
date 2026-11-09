@@ -75,3 +75,8 @@ taskplanner/
 packaging/    PyInstaller spec, Inno Setup script
 tests/        unit tests + offscreen UI smoke test
 ```
+
+## License
+Copyright © 2026 Chaitanya Uppalapati. **All rights reserved.**
+
+This is proprietary software. You may not use, copy, modify or distribute it without written permission from the author. See [`LICENSE`](LICENSE). Bundled third-party components keep their own licenses; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

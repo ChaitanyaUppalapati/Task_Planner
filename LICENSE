@@ -1,0 +1,55 @@
+Task Planner — Proprietary Software License
+
+Copyright (c) 2026 Chaitanya Uppalapati. All rights reserved.
+
+This software, including its source code, object code, installers, documentation,
+graphics, icons and all related files (the "Software"), is the exclusive property
+of Chaitanya Uppalapati (the "Owner") and is protected by copyright law and
+international treaties.
+
+1. NO LICENSE GRANTED. Except as expressly permitted in writing by the Owner, no
+   right or license is granted to any person to use, copy, modify, merge, publish,
+   distribute, sublicense, sell, rent, lease, or create derivative works of the
+   Software, in whole or in part.
+
+2. VIEWING. If the source code is made publicly visible (for example in a public
+   repository), that visibility is solely for review purposes. It does not grant
+   any right to use, copy, fork for use, modify, or redistribute the Software.
+
+3. PROHIBITED ACTIONS. Without the Owner's prior written permission you may not:
+   (a) use the Software for any personal, commercial or organisational purpose;
+   (b) reproduce or distribute the Software or any portion of it;
+   (c) modify, translate, adapt, or create derivative works based on the Software;
+   (d) reverse engineer, decompile, or disassemble any compiled form of the
+       Software, except to the extent such restriction is prohibited by law;
+   (e) remove, alter, or obscure any copyright, trademark, or proprietary notice;
+   (f) use the Software, its design, or its source code to train, build, or
+       benchmark another product or machine-learning model.
+
+4. PERMISSIONS. Requests for permission, licensing, or commercial use must be
+   made to the Owner in writing. Any permission granted applies only to the
+   specific use and scope stated in that written permission.
+
+5. THIRD-PARTY COMPONENTS. The Software uses third-party components that are
+   licensed under their own terms (see THIRD_PARTY_NOTICES.md). Nothing in this
+   license restricts rights you have under those third-party licenses for those
+   components alone.
+
+6. OWNERSHIP OF CONTRIBUTIONS. Any feedback, suggestions, or contributions
+   submitted to the Owner regarding the Software may be used by the Owner without
+   restriction or obligation, and become part of the Software owned by the Owner.
+
+7. NO WARRANTY. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY. IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+   OR OTHER DEALINGS IN THE SOFTWARE.
+
+9. TERMINATION. Any use of the Software in violation of this license is
+   unauthorised and automatically terminates any permission previously granted.
+   The Owner reserves all rights and remedies available under law.
+
+All rights not expressly granted are reserved by the Owner.

@@ -9,7 +9,9 @@
 AppId={{6C2F4E1B-8C9A-4E57-9A43-7B1D2E3F4A5C}
 AppName=Task Planner
 AppVersion={#AppVersion}
-AppPublisher=Task Planner
+AppPublisher=Chaitanya Uppalapati
+AppCopyright=Copyright (c) 2026 Chaitanya Uppalapati. All rights reserved.
+LicenseFile=..\LICENSE
 DefaultDirName={localappdata}\Programs\TaskPlanner
 DefaultGroupName=Task Planner
 DisableProgramGroupPage=yes
@@ -30,6 +32,9 @@ Name: "autostart"; Description: "Start Task Planner when I sign in (recommended 
 
 [Files]
 Source: "..\dist\TaskPlanner\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Task Planner"; Filename: "{app}\TaskPlanner.exe"
