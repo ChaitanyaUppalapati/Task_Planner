@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr = open(os.devnull, "w")  # noqa: SIM115
     parser = argparse.ArgumentParser(prog="taskplanner", description=APP_NAME)
     parser.add_argument("--minimized", action="store_true", help="start hidden in the tray")
+    parser.add_argument("--tutorial", action="store_true",
+                        help="offer the interactive tutorial (used after install)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args(argv)
 
@@ -46,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, OSError):
             pass
 
+    from PySide6.QtCore import QTimer
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
     from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
@@ -66,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     probe = QLocalSocket()
     probe.connectToServer(server_name)
     if probe.waitForConnected(300):
-        probe.write(b"show")
+        probe.write(b"tutorial" if args.tutorial else b"show")
         probe.flush()
         probe.waitForBytesWritten(300)
         return 0
@@ -105,18 +108,34 @@ def main(argv: list[str] | None = None) -> int:
     def on_connection():
         sock = server.nextPendingConnection()
         if sock:
-            sock.readyRead.connect(lambda: (window.showNormal(), window.raise_(),
-                                            window.activateWindow()))
+            def on_message(s=sock):
+                msg = bytes(s.readAll().data())
+                window.showNormal()
+                window.raise_()
+                window.activateWindow()
+                if b"tutorial" in msg:
+                    from taskplanner.ui.tutorial import maybe_prompt
+
+                    QTimer.singleShot(200, lambda: maybe_prompt(window, ctl, force=True))
+
+            sock.readyRead.connect(on_message)
 
     server.newConnection.connect(on_connection)
+
+    from taskplanner.ui.update_dialog import connect_updates
+
+    connect_updates(window, ctl, window.tray)
 
     ctl.start()
     if not (args.minimized and window.tray):
         window.show()
-    if not settings.onboarded:
-        from taskplanner.ui.onboarding import show_onboarding
+    from taskplanner.ui.tutorial import maybe_prompt
 
-        show_onboarding(window, ctl)
+    if args.tutorial:
+        window.show()
+    if window.isVisible():
+        # Let the main window paint first, then offer the tour.
+        QTimer.singleShot(400, lambda: maybe_prompt(window, ctl, force=args.tutorial))
 
     def shutdown():
         ctl.stop()

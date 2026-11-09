@@ -52,6 +52,10 @@ class Controller(QObject):
     tracking_state = Signal(bool)
     ai_finished = Signal(object, object)     # task, Breakdown
     ai_failed = Signal(str)
+    update_available = Signal(object, bool)  # ReleaseInfo, manual check
+    update_none = Signal(bool)               # manual check
+    update_failed = Signal(str, bool)        # message, manual check
+    download_progress = Signal(int, int)     # bytes done, total
 
     def __init__(self, db: Database, settings: Settings, sampler: Sampler | None = None,
                  parent: QObject | None = None):
@@ -80,12 +84,16 @@ class Controller(QObject):
         self.progress_timer.timeout.connect(self.check_progress)
         self.day_timer = QTimer(self)
         self.day_timer.timeout.connect(self.roll_days)
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(lambda: self.check_updates(manual=False))
 
     # ----------------------------------------------------------- lifecycle
     def start(self) -> None:
         self.roll_days()
         self.apply_settings()
         self.day_timer.start(60_000)
+        self.update_timer.start(6 * 3600 * 1000)
+        QTimer.singleShot(45_000, lambda: self.check_updates(manual=False))
         QTimer.singleShot(1500, self.check_progress)
         retention = self.settings.activity_retention_days
         if retention > 0:
@@ -113,6 +121,7 @@ class Controller(QObject):
         self.sample_timer.stop()
         self.progress_timer.stop()
         self.day_timer.stop()
+        self.update_timer.stop()
         self.pool.waitForDone(3000)
 
     # --------------------------------------------------------------- tasks
@@ -260,6 +269,34 @@ class Controller(QObject):
     def _ai_done(self, task: Task, breakdown) -> None:
         self.db.set_setting("ai_used", True)
         self.ai_finished.emit(task, breakdown)
+
+    # -------------------------------------------------------------- updates
+    def check_updates(self, manual: bool = True) -> None:
+        from taskplanner import updater
+
+        s = self.settings
+        if not manual and (not s.auto_update or not getattr(sys, "frozen", False)):
+            return  # automatic checks only for the installed app
+
+        def done(info) -> None:
+            if not updater.is_newer(info.version):
+                self.update_none.emit(manual)
+            elif not manual and info.version == s.skipped_version:
+                pass
+            else:
+                self.update_available.emit(info, manual)
+
+        self._run(lambda: updater.fetch_latest(s.update_repo, s.update_token), done,
+                  lambda e: (log.info("update check failed: %s", e),
+                             self.update_failed.emit(e, manual)))
+
+    def download_update(self, info, on_done, on_failed) -> None:
+        from taskplanner import updater
+
+        token = self.settings.update_token
+        self._run(lambda: updater.download_installer(
+                      info, token, progress=lambda d, t: self.download_progress.emit(d, t)),
+                  on_done, on_failed)
 
     # -------------------------------------------------------------- events
     def _on_engine_event(self, kind: str, payload: dict[str, Any]) -> None:

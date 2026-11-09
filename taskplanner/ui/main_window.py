@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QMainWindow,
     QMessageBox,
+    QPushButton,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -58,6 +60,14 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget()
         self.nav.addItems(PAGES)
         sl.addWidget(self.nav, 1)
+        self.tutorial_btn = QPushButton("🎓  Tutorial")
+        self.tutorial_btn.setToolTip("Interactive tour of the app (F1)")
+        self.tutorial_btn.clicked.connect(self.start_tutorial)
+        tb = QHBoxLayout()
+        tb.setContentsMargins(12, 0, 12, 8)
+        tb.addWidget(self.tutorial_btn)
+        sl.addLayout(tb)
+        QShortcut(QKeySequence(Qt.Key.Key_F1), self, activated=self.start_tutorial)
         self.side_level = label("", "Muted", wrap=True)
         self.side_level.setContentsMargins(16, 0, 16, 0)
         sl.addWidget(self.side_level)
@@ -100,8 +110,22 @@ class MainWindow(QMainWindow):
         streak = self.ctl.engine.streak().current
         self.side_level.setText(f"Lv {info.level} {info.title}\n{info.xp:,} XP · 🔥 {streak}")
 
+    def start_tutorial(self) -> None:
+        from taskplanner.ui.tutorial import start_tour
+
+        start_tour(self, self.ctl)
+
     def go(self, page: int) -> None:
         self.nav.setCurrentRow(page)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        info = getattr(self, "_pending_update", None)
+        if info is not None:
+            self._pending_update = None
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(300, lambda: self.ctl.update_available.emit(info, True))
 
     def closeEvent(self, event) -> None:
         if self.really_quit or self.tray is None or not self.tray.isVisible():

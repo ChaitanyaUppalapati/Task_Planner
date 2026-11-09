@@ -58,7 +58,7 @@ class TasksView(QWidget):
                           ("All", "all")):
             self.filter.addItem(text, val)
         self.filter.currentIndexChanged.connect(self.refresh)
-        new = QPushButton("+ New task")
+        self.new_btn = new = QPushButton("+ New task")
         new.setObjectName("Primary")
         new.clicked.connect(self.new_task)
         head.addWidget(self.search)
@@ -82,7 +82,9 @@ class TasksView(QWidget):
         self.table.itemSelectionChanged.connect(self._update_buttons)
         lay.addWidget(self.table, 1)
 
-        actions = QHBoxLayout()
+        self.actions_bar = QWidget()
+        actions = QHBoxLayout(self.actions_bar)
+        actions.setContentsMargins(0, 0, 0, 0)
         self.b_edit = QPushButton("Edit")
         self.b_edit.clicked.connect(self.edit_task)
         self.b_pin = QPushButton("📌 Work on this")
@@ -100,7 +102,7 @@ class TasksView(QWidget):
             actions.addWidget(b)
         actions.addStretch(1)
         actions.addWidget(self.b_delete)
-        lay.addLayout(actions)
+        lay.addWidget(self.actions_bar)
         self.hint = label("", "Muted", wrap=True)
         lay.addWidget(self.hint)
 

@@ -49,6 +49,19 @@ Setup:
 
 If you installed it through npm (`claude.cmd`), the app calls `node cli.js` directly to avoid cmd.exe quoting problems.
 
+## Tutorial
+After installing, the app offers an interactive tour. It dims the window and highlights one control at a time; highlighted controls stay clickable, so you create your first task and plan your day for real as you go. Choose **Maybe later** to skip it. You can start it any time from **🎓 Tutorial** in the sidebar, the tray menu, **Settings**, or **F1**.
+
+## Updates
+Task Planner checks GitHub Releases 45 s after starting and then every 6 hours (**Settings → Updates**, or tray → **Check for updates…**). When a newer version exists it shows the release notes, then:
+1. downloads the installer,
+2. verifies it against the release's `SHA256SUMS.txt`,
+3. installs it silently and restarts the app.
+
+Your data is kept.
+
+**Publishing an update:** bump `__version__` in `taskplanner/__init__.py`, write the notes in `CHANGELOG_LATEST.md`, and push. CI builds the installer and publishes release `v<version>`, which installed copies then pick up.
+
 ## Install (Windows)
 Download `TaskPlannerSetup-x.y.z.exe` from the **Actions** artifacts or a **Release**. It installs per user and needs no admin rights. The installer can also start the app when you sign in, which is recommended so tracking is always on. The app runs in the system tray, and closing the window keeps it tracking.
 

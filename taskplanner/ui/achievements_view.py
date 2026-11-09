@@ -32,7 +32,7 @@ class AchievementsView(QScrollArea):
         self.lay.setSpacing(14)
         self.lay.addWidget(label("Achievements", "H1"))
 
-        lvl = Card()
+        self.level_card = lvl = Card()
         self.level_label = label("", "H2")
         self.xp_bar = QProgressBar()
         self.xp_bar.setRange(0, 1000)

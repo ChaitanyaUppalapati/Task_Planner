@@ -58,7 +58,7 @@ class Dashboard(QScrollArea):
         lay.addLayout(top)
 
         # Score card
-        score_card = Card("Today's productivity score")
+        self.score_card = score_card = Card("Today's productivity score")
         row = QHBoxLayout()
         self.ring = ScoreRing(150)
         row.addWidget(self.ring)
@@ -95,7 +95,7 @@ class Dashboard(QScrollArea):
         top.addWidget(lvl_card, 0, 1)
 
         # Current task card
-        cur = Card("Working on")
+        self.current_card = cur = Card("Working on")
         self.pin_combo = QComboBox()
         self.pin_combo.setToolTip("Pin the task you're working on. Unmatched, non-distracting "
                                   "activity is credited to it.")
@@ -136,12 +136,12 @@ class Dashboard(QScrollArea):
 
         bottom = QHBoxLayout()
         bottom.setSpacing(14)
-        plan_card = Card("Today's plan")
+        self.plan_card = plan_card = Card("Today's plan")
         self.plan_list = QListWidget()
         self.plan_list.setMinimumHeight(220)
         plan_card.body.addWidget(self.plan_list)
         bottom.addWidget(plan_card, 3)
-        week_card = Card("This week")
+        self.week_card = week_card = Card("This week")
         self.week_bar = QProgressBar()
         self.week_bar.setRange(0, 1000)
         self.week_bar.setFixedHeight(12)

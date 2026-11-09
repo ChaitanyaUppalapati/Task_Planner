@@ -111,3 +111,64 @@ def test_ai_breakdown_result_reaches_dialog(qapp, db, settings, monkeypatch):
         assert [d.table.item(r, 0).text() for r in range(d.table.rowCount())] == ["AI one", "AI two"]
         d.reject()
     ctl.stop()
+
+
+def test_tutorial_walks_every_step(qapp, db, settings):
+    from taskplanner.ui.controller import Controller
+    from taskplanner.ui.main_window import MainWindow
+    from taskplanner.ui.tutorial import start_tour, tutorial_state
+
+    ctl = Controller(db, settings, sampler=ScriptedSampler([]))
+    ctl.engine.create_task(Task(title="demo", user_guess_minutes=30))
+    w = MainWindow(ctl)
+    w.resize(1300, 850)
+    w.show()
+    qapp.processEvents()
+    tour = start_tour(w, ctl)
+    n = len(tour.steps)
+    for i in range(n):
+        for _ in range(3):
+            qapp.processEvents()
+        tour._layout()
+        assert tour.index == i
+        step = tour.steps[i]
+        if step.target:
+            assert not tour.hole.isNull(), f"step {i} target not found"
+            assert not tour.card.geometry().intersects(tour.hole), f"card covers target {i}"
+        assert tour.rect().contains(tour.card.geometry()), f"card off-screen at step {i}"
+        if i < n - 1:
+            tour.next()
+    tour.back()
+    assert tour.index == n - 2
+    tour.next()
+    tour.next()  # Finish
+    qapp.processEvents()
+    assert tutorial_state(db)["completed"] is True
+    w.really_quit = True
+    w.close()
+    ctl.stop()
+
+
+def test_tutorial_advances_when_user_does_the_step(qapp, db, settings):
+    from taskplanner.ui.controller import Controller
+    from taskplanner.ui.main_window import MainWindow
+    from taskplanner.ui.tutorial import start_tour, tutorial_state
+
+    ctl = Controller(db, settings, sampler=ScriptedSampler([]))
+    w = MainWindow(ctl)
+    w.show()
+    w.tasks.new_task = lambda: None  # don't open the modal editor in the test
+    tour = start_tour(w, ctl)
+    tour.next()  # -> "Create a task"
+    qapp.processEvents()
+    assert w.stack.currentIndex() == 1
+    w.tasks.new_btn.click()  # the spotlighted button is clickable through the overlay
+    for _ in range(3):
+        qapp.processEvents()
+    assert tour.index == 2
+    tour.close_tour(False)
+    qapp.processEvents()
+    assert tutorial_state(db)["completed"] is False
+    w.really_quit = True
+    w.close()
+    ctl.stop()

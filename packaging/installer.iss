@@ -44,7 +44,9 @@ Name: "{userdesktop}\Task Planner"; Filename: "{app}\TaskPlanner.exe"; Tasks: de
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "TaskPlanner"; ValueData: """{app}\TaskPlanner.exe"" --minimized"; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{app}\TaskPlanner.exe"; Description: "Launch Task Planner"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\TaskPlanner.exe"; Parameters: "--tutorial"; Description: "Launch Task Planner and take the interactive tour"; Flags: nowait postinstall skipifsilent
+; In-app updates run the installer silently; relaunch the app afterwards.
+Filename: "{app}\TaskPlanner.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM TaskPlanner.exe /F"; Flags: runhidden; RunOnceId: "KillApp"

@@ -89,7 +89,7 @@ class SettingsView(QScrollArea):
         f.addRow("Breaks", self.breaks)
         lay.addWidget(goals)
 
-        tr = QGroupBox("Tracking")
+        self.tracking_group = tr = QGroupBox("Tracking")
         f = QFormLayout(tr)
         self.tracking = QCheckBox("Track active window and idle time")
         self.tracking.setChecked(s.tracking_enabled)
@@ -139,7 +139,7 @@ class SettingsView(QScrollArea):
             cl.addLayout(col)
         lay.addWidget(cats)
 
-        ai = QGroupBox("AI breakdown (Claude Code CLI)")
+        self.ai_group = ai = QGroupBox("AI breakdown (Claude Code CLI)")
         f = QFormLayout(ai)
         self.ai_enabled = QCheckBox("Enable ✨ Break down with Claude")
         self.ai_enabled.setChecked(s.ai_enabled)
@@ -181,7 +181,27 @@ class SettingsView(QScrollArea):
         f.addRow(self.autostart)
         f.addRow(self.notifications)
         f.addRow("Theme", self.theme)
+        tour = QPushButton("🎓 Start the interactive tutorial")
+        tour.clicked.connect(lambda: self.window().start_tutorial())
+        f.addRow(tour)
         lay.addWidget(app)
+
+        upd = QGroupBox("Updates")
+        uf = QFormLayout(upd)
+        self.auto_update = QCheckBox("Check for updates automatically and offer to install them")
+        self.auto_update.setChecked(s.auto_update)
+        self.update_token = QLineEdit(s.update_token)
+        self.update_token.setEchoMode(QLineEdit.EchoMode.Password)
+        self.update_token.setPlaceholderText("only if the GitHub repository is private")
+        check = QPushButton("Check for updates now")
+        check.clicked.connect(lambda: self.ctl.check_updates(manual=True))
+        from taskplanner import __version__
+
+        uf.addRow(self.auto_update)
+        uf.addRow("Installed version", label(__version__))
+        uf.addRow("GitHub token", self.update_token)
+        uf.addRow(check)
+        lay.addWidget(upd)
 
         data = QGroupBox("Data")
         dl = QHBoxLayout(data)
@@ -235,6 +255,8 @@ class SettingsView(QScrollArea):
         s.ai_timeout_seconds = self.ai_timeout.value()
         s.start_with_windows = self.autostart.isChecked()
         s.notifications_enabled = self.notifications.isChecked()
+        s.auto_update = self.auto_update.isChecked()
+        s.update_token = self.update_token.text().strip()
         theme_changed = s.theme != self.theme.currentData()
         s.theme = self.theme.currentData()
         if s.available_minutes <= 0:

@@ -104,10 +104,16 @@ class Tray(QSystemTrayIcon):
             if not any_manual:
                 ms.addAction("(auto-tracked milestones only)").setEnabled(False)
         self.menu.addSeparator()
+        self.menu.addAction("🎓 Tutorial", self.window.start_tutorial)
+        self.menu.addAction("Check for updates…", self._check_updates)
         toggle = self.menu.addAction("Resume tracking" if paused else "Pause tracking")
         toggle.triggered.connect(lambda: self.ctl.set_tracking(paused))
         self.menu.addSeparator()
         self.menu.addAction("Quit", self._quit)
+
+    def _check_updates(self) -> None:
+        self.show_window()
+        self.ctl.check_updates(manual=True)
 
     def _tick(self, milestone_id: int) -> None:
         pinned = self.ctl.pinned_task()

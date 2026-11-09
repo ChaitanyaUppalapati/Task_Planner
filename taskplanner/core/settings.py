@@ -55,6 +55,10 @@ class Settings:
     claude_model: str = ""                 # empty = CLI default
     ai_timeout_seconds: int = 240
     theme: str = "dark"
+    auto_update: bool = True
+    update_repo: str = "ChaitanyaUppalapati/Task_Planner"
+    update_token: str = ""                 # only needed if the repository is private
+    skipped_version: str = ""
     onboarded: bool = False
 
     @property

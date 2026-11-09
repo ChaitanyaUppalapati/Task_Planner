@@ -101,7 +101,7 @@ class InsightsView(QScrollArea):
         row.addWidget(c4, 1)
         lay.addLayout(row)
 
-        c5 = Card("Unassigned time today — assign it to the right task")
+        self.inbox_card = c5 = Card("Unassigned time today — assign it to the right task")
         c5.body.addWidget(label("Active time that didn't match any task. Assigning it makes "
                                 "your efficiency honest and teaches the predictor. Add "
                                 "keywords to the task so it matches automatically next time.",
