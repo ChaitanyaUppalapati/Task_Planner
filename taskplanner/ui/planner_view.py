@@ -50,7 +50,8 @@ class PlannerView(QWidget):
         left.body.addWidget(self.candidates, 1)
         lrow = QHBoxLayout()
         auto = QPushButton("⚡ Auto-fill")
-        auto.setToolTip("Pack by urgency (overdue, priority, due date) up to your available time")
+        auto.setToolTip("Pack by urgency (overdue, ★ weekly commitments, priority, due date) "
+                        "up to your available time")
         auto.clicked.connect(self.autofill)
         clear = QPushButton("Clear")
         clear.clicked.connect(self.clear)
@@ -114,10 +115,12 @@ class PlannerView(QWidget):
         self._tasks = {t.id: t for t in tasks}
         self.candidates.blockSignals(True)
         self.candidates.clear()
-        for t in sorted(tasks, key=lambda t: planner.urgency_key(t, date.today())):
+        weekly_ids = self.ctl.engine.week_commitments()
+        for t in sorted(tasks, key=lambda t: planner.urgency_key(t, date.today(), weekly_ids)):
             due = f" · due {t.due_date}" if t.due_date else ""
+            star = "★ " if t.id in weekly_ids else ""
             remaining = t.remaining_par if t.remaining_par > 0 else 0
-            item = QListWidgetItem(f"{t.title}   —  {fmt_minutes(remaining)} left of par · "
+            item = QListWidgetItem(f"{star}{t.title}   —  {fmt_minutes(remaining)} left of par · "
                                    f"{PRIORITY_LABELS.get(t.priority)}{due}")
             item.setData(Qt.ItemDataRole.UserRole, t.id)
             if remaining <= 0:
@@ -208,11 +211,13 @@ class PlannerView(QWidget):
     # ------------------------------------------------------------- actions
     def autofill(self) -> None:
         open_tasks = [t for t in self._tasks.values() if t.remaining_par > 0]
-        chosen = {t.id for t in planner.suggest_plan(open_tasks, self._available(),
-                                                     date.today())}
+        chosen = {t.id for t in planner.suggest_plan(open_tasks, self._available(), date.today(),
+                                                     self.ctl.engine.week_commitments())}
         self.candidates.blockSignals(True)
         for i in range(self.candidates.count()):
             it = self.candidates.item(i)
+            if not it.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                continue
             it.setCheckState(Qt.CheckState.Checked if it.data(Qt.ItemDataRole.UserRole) in chosen
                              else Qt.CheckState.Unchecked)
         self.candidates.blockSignals(False)

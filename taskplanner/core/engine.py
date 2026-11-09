@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from taskplanner.core import estimator, gamification, scoring
+from taskplanner.core import estimator, gamification, scoring, weekly
 from taskplanner.core.db import Database, day_bounds, local_date
 from taskplanner.core.models import (
     DayStats,
@@ -340,6 +340,8 @@ class Engine:
             cur += timedelta(days=1)
         if done:
             self.db.set_setting("last_finalized", done[-1].date)
+        weeks = self.finalize_weeks()
+        if done or weeks:
             self.check_achievements()
         return done
 
@@ -364,6 +366,79 @@ class Engine:
                                f"streak:{day}", ts=ts)
         self.emit("day_finalized", day=day, score=stats.score, qualified=qualified)
         return stats
+
+    # --------------------------------------------------------------- weeks
+    def this_week(self) -> str:
+        return weekly.week_key(date.fromisoformat(self.today()))
+
+    def _day_for_week(self, day: str):
+        stored = self.db.get_day(day)
+        if stored and stored[1]:
+            return scoring.stats_from_dict(stored[0])
+        return self.day_stats(day)
+
+    def week_stats(self, week: str | None = None) -> weekly.WeekStats:
+        week = week or self.this_week()
+        start = date.fromisoformat(week)
+        today = date.fromisoformat(self.today())
+        upto = min(today, start + timedelta(days=6))
+        return weekly.compute_week(self.db, week, self.settings.weekly_goal_minutes,
+                                   self.settings.work_days, upto, self._day_for_week)
+
+    def week_history(self, weeks: int = 8) -> list[weekly.WeekStats]:
+        stored = dict(self.db.finalized_weeks())
+        current = date.fromisoformat(self.this_week())
+        out = []
+        for i in range(weeks - 1, -1, -1):
+            w = (current - timedelta(days=7 * i)).isoformat()
+            if i == 0:
+                out.append(self.week_stats(w))
+            elif w in stored:
+                out.append(weekly.WeekStats.from_dict(stored[w]))
+            else:
+                out.append(weekly.WeekStats(week=w, goal=self.settings.weekly_goal_minutes))
+        return out
+
+    def commit_week_plan(self, tasks: Sequence[Task], week: str | None = None) -> None:
+        week = week or self.this_week()
+        entries = [(t.id, t.remaining_par) for t in tasks
+                   if t.id is not None and t.remaining_par > 0]
+        self.db.set_week_plan(week, entries, committed_at=self.clock())
+        self.emit("plan_changed", week=week)
+        self.check_achievements()
+
+    def week_commitments(self, week: str | None = None) -> frozenset[int]:
+        return frozenset(weekly.committed_task_ids(self.db, week or self.this_week()))
+
+    def finalize_weeks(self) -> list[weekly.WeekStats]:
+        """Score every past week that had activity or a weekly plan, once."""
+        current = self.this_week()
+        first_ts = self.db.first_activity_ts()
+        candidates = set(self.db.week_plan_weeks())
+        if first_ts is not None:
+            cur = weekly.week_start(date.fromisoformat(local_date(first_ts)))
+            while cur.isoformat() < current:
+                candidates.add(cur.isoformat())
+                cur += timedelta(days=7)
+        done_weeks = {w for w, _ in self.db.finalized_weeks()}
+        out = []
+        for week in sorted(candidates):
+            if week >= current or week in done_weeks:
+                continue
+            s = self.week_stats(week)
+            self.db.save_week(week, s.to_dict(), finalized=True)
+            _, wend = weekly.week_bounds(week)
+            ts = wend - 1
+            if s.score > 0 and not self.db.has_xp_ref(f"week:{week}"):
+                self.db.add_xp(int(round(s.score)), f"Weekly score {weekly.week_label(week)}",
+                               f"week:{week}", ts=ts)
+            bonus = weekly.week_bonus(s)
+            if bonus and not self.db.has_xp_ref(f"weekbonus:{week}"):
+                self.db.add_xp(bonus, f"Weekly commitment delivered {weekly.week_label(week)}",
+                               f"weekbonus:{week}", ts=ts)
+            self.emit("week_finalized", week=week, score=s.score, delivery=s.delivery)
+            out.append(s)
+        return out
 
     def all_day_data(self) -> dict[str, dict]:
         return {d: data for d, data in self.db.finalized_days()}
@@ -422,6 +497,8 @@ class Engine:
             ai_used=bool(self.db.get_setting("ai_used", False)),
             goal_minutes=self.settings.daily_goal_minutes,
             best_earned_before=best_before,
+            weeks=[d for _, d in self.db.finalized_weeks()],
+            week_plans=len(self.db.week_plan_weeks()),
         )
 
     def check_achievements(self) -> list[gamification.Achievement]:

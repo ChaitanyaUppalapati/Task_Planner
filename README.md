@@ -17,7 +17,8 @@ Every task gets a predicted **par time**. Progress is measured from what the wor
 | **Efficiency** | earned ÷ spent |
 | **Daily score (0–100)** | Throughput 40 (earned vs. 5 h goal) · Efficiency 35 (full marks at 125%) · Plan 15 (share of plan delivered × plan density) · Focus 10 (distractions and context switches). |
 | **Planner** | Packs par times into your working hours and shows plan density against what you've actually delivered before. Only output earned *after* you commit the plan counts as delivered. |
-| **Gamification** | XP for earned minutes. Finish bonuses: Eagle (≤60% of par) ×2, Birdie (≤85%) ×1.5, Par ×1.25. Plan Bonus for delivering a dense plan, levels and titles, streaks with freezes, 25 achievements, a live ahead/behind-par meter, and nudges when you drift into distracting apps. |
+| **Weekly targets** | A weekly output goal (default 25 h of par, over 5 working days) plus a weekly commitment: the tasks you promise to finish this week (**Planner → This week**). The dashboard shows weekly pace (ahead or behind where you should be by today). The daily auto-fill puts ★ weekly commitments first. When the week closes it gets a score (Output 50 · Delivery 35 · Efficiency 15) and XP. Delivering 90%+ of the commitment adds a bonus of ¼ XP per committed minute. Only output earned after committing counts. |
+| **Gamification** | XP for earned minutes. Finish bonuses: Eagle (≤60% of par) ×2, Birdie (≤85%) ×1.5, Par ×1.25. Plan Bonus for delivering a dense plan, levels and titles, streaks with freezes, 28 achievements, a live ahead/behind-par meter, and nudges when you drift into distracting apps. |
 
 ### Time tracking → tasks
 Each window sample is assigned like this:

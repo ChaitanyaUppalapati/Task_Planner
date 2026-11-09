@@ -170,6 +170,8 @@ class AchievementContext:
     ai_used: bool = False
     goal_minutes: float = 300
     best_earned_before: float = 0.0  # best earned day before the latest day
+    weeks: list[dict] = field(default_factory=list)  # finalized weekly stats, chronological
+    week_plans: int = 0
 
 
 @dataclass(frozen=True)
@@ -235,6 +237,16 @@ ACHIEVEMENTS: list[Achievement] = [
                 and _last(c).earned > c.best_earned_before),  # type: ignore[union-attr]
     Achievement("score_90", "A-Grade", "Score 90+ in a day.", "🅰️",
                 lambda c: any(d.score >= 90 for d in c.days)),
+    Achievement("week_delivered", "Promise Kept",
+                "Deliver 90%+ of a week's committed tasks.", "🤝",
+                lambda c: any(w.get("planned", 0) > 0 and w.get("delivery", 0) >= 0.9
+                              for w in c.weeks)),
+    Achievement("perfect_week", "Perfect Week",
+                "Deliver every committed task and hit the weekly output goal.", "💎",
+                lambda c: any(w.get("planned", 0) > 0 and w.get("delivery", 0) >= 0.999
+                              and w.get("earned", 0) >= w.get("goal", 1e9) for w in c.weeks)),
+    Achievement("week_planner", "Week Architect", "Commit a weekly plan 4 times.", "🧭",
+                lambda c: c.week_plans >= 4),
     Achievement("streak_3", "On a Roll", "3-day streak.", "🔥", lambda c: c.streak >= 3),
     Achievement("streak_7", "Week Warrior", "7-day streak.", "🔥", lambda c: c.streak >= 7),
     Achievement("streak_30", "Unstoppable", "30-day streak.", "☄️", lambda c: c.streak >= 30),

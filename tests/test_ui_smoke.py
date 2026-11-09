@@ -52,3 +52,26 @@ def test_all_pages_render(qapp, db, settings):
     w.really_quit = True
     w.close()
     ctl.stop()
+
+
+def test_week_planner_commit(qapp, db, settings):
+    from taskplanner.ui.controller import Controller
+    from taskplanner.ui.main_window import MainWindow
+
+    settings.onboarded = True
+    ctl = Controller(db, settings, sampler=ScriptedSampler([]))
+    t = ctl.engine.create_task(Task(title="weekly thing", user_guess_minutes=60))
+    w = MainWindow(ctl)
+    w.show()
+    w.go(2)
+    w.planner.setCurrentIndex(1)
+    qapp.processEvents()
+    wp = w.week_planner
+    wp.autofill()
+    assert wp._checked_ids() == [t.id]
+    wp.commit()
+    assert ctl.engine.week_commitments() == {t.id}
+    assert ctl.engine.week_stats().planned == t.par_minutes
+    w.really_quit = True
+    w.close()
+    ctl.stop()

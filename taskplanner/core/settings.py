@@ -30,6 +30,8 @@ DEFAULT_BROWSERS = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "ope
 @dataclass
 class Settings:
     daily_goal_minutes: int = 300          # earned (output) minutes per day
+    weekly_goal_minutes: int = 1500        # earned (output) minutes per week
+    work_days: int = 5                     # working days per week (Mon..)
     work_start: str = "09:00"
     work_end: str = "17:00"
     break_minutes: int = 60

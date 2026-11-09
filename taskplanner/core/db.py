@@ -129,6 +129,22 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE plans ADD COLUMN committed_at REAL NOT NULL DEFAULT 0;
     """,
+    # v4: weekly targets
+    """
+    CREATE TABLE week_plans (
+        week TEXT NOT NULL,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL DEFAULT 0,
+        planned_minutes REAL NOT NULL,
+        committed_at REAL NOT NULL,
+        PRIMARY KEY (week, task_id)
+    );
+    CREATE TABLE weeks (
+        week TEXT PRIMARY KEY,
+        finalized INTEGER NOT NULL DEFAULT 0,
+        data TEXT NOT NULL DEFAULT '{}'
+    );
+    """,
 ]
 
 
@@ -462,6 +478,36 @@ class Database:
     def plan_days(self) -> list[str]:
         return [r["date"] for r in self.query("SELECT DISTINCT date FROM plans ORDER BY date")]
 
+    # ------------------------------------------------------------ week plans
+    def set_week_plan(self, week: str, entries: list[tuple[int, float]],
+                      committed_at: float | None = None) -> None:
+        committed_at = committed_at if committed_at is not None else time.time()
+        with self.transaction():
+            self.execute("DELETE FROM week_plans WHERE week = ?", (week,))
+            for pos, (task_id, minutes) in enumerate(entries):
+                self.execute(
+                    "INSERT INTO week_plans(week, task_id, position, planned_minutes, committed_at) "
+                    "VALUES(?, ?, ?, ?, ?)",
+                    (week, task_id, pos, minutes, committed_at),
+                )
+
+    def get_week_plan(self, week: str) -> list[sqlite3.Row]:
+        return self.query("SELECT * FROM week_plans WHERE week = ? ORDER BY position", (week,))
+
+    def week_plan_weeks(self) -> list[str]:
+        return [r["week"] for r in self.query("SELECT DISTINCT week FROM week_plans ORDER BY week")]
+
+    def save_week(self, week: str, data: dict[str, Any], finalized: bool) -> None:
+        self.execute(
+            "INSERT INTO weeks(week, finalized, data) VALUES(?, ?, ?) "
+            "ON CONFLICT(week) DO UPDATE SET finalized = excluded.finalized, data = excluded.data",
+            (week, int(finalized), json.dumps(data)),
+        )
+
+    def finalized_weeks(self) -> list[tuple[str, dict[str, Any]]]:
+        return [(r["week"], json.loads(r["data"])) for r in
+                self.query("SELECT week, data FROM weeks WHERE finalized = 1 ORDER BY week")]
+
     # ------------------------------------------------------------------- days
     def save_day(self, day: str, data: dict[str, Any], finalized: bool) -> None:
         self.execute(
@@ -529,6 +575,7 @@ class Database:
     def export_all(self) -> dict[str, list[dict[str, Any]]]:
         out: dict[str, list[dict[str, Any]]] = {}
         for table in ("tasks", "milestones", "progress_events", "activity", "plans", "days",
+                      "week_plans", "weeks",
                       "xp_log", "achievements", "settings"):
             out[table] = [dict(r) for r in self.query(f"SELECT * FROM {table}")]
         return out

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -24,6 +25,7 @@ from taskplanner.ui.insights_view import InsightsView
 from taskplanner.ui.planner_view import PlannerView
 from taskplanner.ui.settings_view import SettingsView
 from taskplanner.ui.tasks_view import TasksView
+from taskplanner.ui.week_view import WeekPlannerView
 from taskplanner.ui.widgets import label
 
 PAGES = ["🏠  Dashboard", "✅  Tasks", "🗓️  Planner", "📊  Insights", "🏆  Achievements",
@@ -67,7 +69,11 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.dashboard = Dashboard(ctl)
         self.tasks = TasksView(ctl)
-        self.planner = PlannerView(ctl)
+        self.planner = QTabWidget()
+        self.day_planner = PlannerView(ctl)
+        self.week_planner = WeekPlannerView(ctl)
+        self.planner.addTab(self.day_planner, "Today")
+        self.planner.addTab(self.week_planner, "This week")
         self.insights = InsightsView(ctl)
         self.achievements = AchievementsView(ctl)
         self.settings_page = SettingsView(ctl, on_theme_change=self.apply_theme)

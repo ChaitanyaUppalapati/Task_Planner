@@ -77,6 +77,10 @@ class InsightsView(QScrollArea):
         c2.body.addWidget(self.score_chart)
         grid.addWidget(c1, 0, 0)
         grid.addWidget(c2, 0, 1)
+        c6 = Card("Weekly output, last 8 weeks (dashed = weekly goal, line = commitment delivered)")
+        self.week_chart = BarChart()
+        c6.body.addWidget(self.week_chart)
+        grid.addWidget(c6, 1, 0, 1, 2)
         lay.addLayout(grid)
 
         row = QHBoxLayout()
@@ -142,6 +146,14 @@ class InsightsView(QScrollArea):
                                    fmt=lambda v: fmt_minutes(v))
         self.score_chart.set_data(labels, [d.score for d in hist],
                                   line=[min(100, d.efficiency * 50) for d in hist], max_value=100)
+
+        weeks = eng.week_history(8)
+        wmax = max([self.ctl.settings.weekly_goal_minutes, *(w.earned for w in weeks)])
+        self.week_chart.set_data(
+            [date.fromisoformat(w.week).strftime("%d %b") for w in weeks],
+            [w.earned for w in weeks],
+            line=[w.delivery * wmax for w in weeks], max_value=wmax,
+            reference=self.ctl.settings.weekly_goal_minutes, fmt=lambda v: fmt_minutes(v))
 
         week = hist[-7:]
         prev = hist[-14:-7]

@@ -30,7 +30,7 @@ class PlanAssessment:
     message: str
 
 
-def urgency_key(task: Task, today: date) -> tuple:
+def urgency_key(task: Task, today: date, weekly_ids: frozenset[int] = frozenset()) -> tuple:
     due_days = 9999
     if task.due_date:
         try:
@@ -38,12 +38,15 @@ def urgency_key(task: Task, today: date) -> tuple:
         except ValueError:
             pass
     overdue = due_days < 0
-    return (not overdue, -task.priority, due_days, -task.progress, task.remaining_par)
+    return (not overdue, task.id not in weekly_ids, -task.priority, due_days, -task.progress,
+            task.remaining_par)
 
 
-def suggest_plan(tasks: Sequence[Task], available: float, today: date) -> list[Task]:
-    """Greedy pack by urgency; smaller tasks fill remaining gaps."""
-    candidates = sorted((t for t in tasks if t.remaining_par > 0), key=lambda t: urgency_key(t, today))
+def suggest_plan(tasks: Sequence[Task], available: float, today: date,
+                 weekly_ids: frozenset[int] = frozenset()) -> list[Task]:
+    """Greedy pack by urgency (overdue, this week's commitments, priority, due date)."""
+    candidates = sorted((t for t in tasks if t.remaining_par > 0),
+                        key=lambda t: urgency_key(t, today, weekly_ids))
     chosen: list[Task] = []
     total = 0.0
     budget = available

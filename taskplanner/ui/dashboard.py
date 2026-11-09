@@ -141,6 +141,28 @@ class Dashboard(QScrollArea):
         self.plan_list.setMinimumHeight(220)
         plan_card.body.addWidget(self.plan_list)
         bottom.addWidget(plan_card, 3)
+        week_card = Card("This week")
+        self.week_bar = QProgressBar()
+        self.week_bar.setRange(0, 1000)
+        self.week_bar.setFixedHeight(12)
+        self.week_output = label("", "H2")
+        self.week_pace = label("", "Muted", wrap=True)
+        self.week_commit_bar = QProgressBar()
+        self.week_commit_bar.setRange(0, 1000)
+        self.week_commit_bar.setFixedHeight(12)
+        self.week_commit = label("", "Muted", wrap=True)
+        self.week_score = label("", "H2")
+        week_card.body.addWidget(label("Output vs. weekly goal", "Muted"))
+        week_card.body.addWidget(self.week_bar)
+        week_card.body.addWidget(self.week_output)
+        week_card.body.addWidget(self.week_pace)
+        week_card.body.addSpacing(6)
+        week_card.body.addWidget(label("Weekly commitment", "Muted"))
+        week_card.body.addWidget(self.week_commit_bar)
+        week_card.body.addWidget(self.week_commit)
+        week_card.body.addWidget(self.week_score)
+        week_card.body.addStretch(1)
+        bottom.addWidget(week_card, 2)
         feed_card = Card("Recent XP")
         self.feed = QListWidget()
         self.feed.setMinimumHeight(220)
@@ -203,6 +225,7 @@ class Dashboard(QScrollArea):
         self._fill_pin_combo()
         self._fill_plan()
         self._fill_feed()
+        self._fill_week()
         self.refresh_live()
 
     def refresh_live(self) -> None:
@@ -317,6 +340,24 @@ class Dashboard(QScrollArea):
                                    f"{fmt_minutes(row['planned_minutes'])}{badge}")
             item.setData(Qt.ItemDataRole.UserRole, t.id)
             self.plan_list.addItem(item)
+
+    def _fill_week(self) -> None:
+        p = palette()
+        s = self.ctl.engine.week_stats()
+        self.week_bar.setValue(int(min(1.0, s.earned / max(1.0, s.goal)) * 1000))
+        self.week_output.setText(f"{fmt_minutes(s.earned)} / {fmt_minutes(s.goal)}")
+        ahead = s.pace >= 0
+        self.week_pace.setText(f"{'▲ ahead of' if ahead else '▼ behind'} pace by "
+                               f"{fmt_minutes(abs(s.pace))} · day {s.days_elapsed}/{s.work_days}")
+        self.week_pace.setStyleSheet(f"color: {p.good if ahead else p.bad};")
+        if s.planned > 0:
+            self.week_commit_bar.setValue(int(s.delivery * 1000))
+            self.week_commit.setText(f"{s.tasks_done}/{s.tasks_planned} tasks done · "
+                                     f"{s.delivery:.0%} of committed par delivered")
+        else:
+            self.week_commit_bar.setValue(0)
+            self.week_commit.setText("Nothing committed. Planner → This week.")
+        self.week_score.setText(f"Weekly score {s.score:.0f}")
 
     def _fill_feed(self) -> None:
         self.feed.clear()
