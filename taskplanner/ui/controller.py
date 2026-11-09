@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 
 from taskplanner.ai import claude_cli
 from taskplanner.core.db import Database
@@ -29,6 +29,9 @@ class _WorkerSignals(QObject):
 class _Worker(QRunnable):
     def __init__(self, fn: Callable[[], Any]):
         super().__init__()
+        # The controller owns the lifetime (see Controller._run); if Qt auto-deleted the
+        # runnable or Python collected it, the queued result signal would be dropped.
+        self.setAutoDelete(False)
         self.fn = fn
         self.signals = _WorkerSignals()
 
@@ -64,6 +67,7 @@ class Controller(QObject):
         self._last_nudge = 0.0
         self._over_par_warned: set[int] = set()
         self._progress_running = False
+        self._jobs: set[_Worker] = set()
         self.current_category = Category.IDLE
         self.current_task_id: int | None = None
         self.pinned_task_id: int | None = db.get_setting("pinned_task_id")
@@ -187,6 +191,24 @@ class Controller(QObject):
                              f"“{task.title}” passed its {task.par_minutes:.0f} min par at "
                              f"{task.progress:.0%} done. Finish strong or split it up.")
 
+    def _run(self, fn: Callable[[], Any], on_done: Callable[[Any], None],
+             on_failed: Callable[[str], None]) -> None:
+        """Run ``fn`` on the thread pool; callbacks run on the GUI thread."""
+        worker = _Worker(fn)
+        self._jobs.add(worker)  # keep alive until the result has been delivered
+
+        def done(result: Any) -> None:
+            self._jobs.discard(worker)
+            on_done(result)
+
+        def failed(message: str) -> None:
+            self._jobs.discard(worker)
+            on_failed(message)
+
+        worker.signals.done.connect(done, Qt.ConnectionType.QueuedConnection)
+        worker.signals.failed.connect(failed, Qt.ConnectionType.QueuedConnection)
+        self.pool.start(worker)
+
     # ------------------------------------------------------------ progress
     def check_progress(self) -> None:
         if self._progress_running:
@@ -196,10 +218,8 @@ class Controller(QObject):
         if not tasks:
             return
         self._progress_running = True
-        worker = _Worker(lambda: Engine.read_sources(tasks))
-        worker.signals.done.connect(self._apply_readings)
-        worker.signals.failed.connect(lambda _e: setattr(self, "_progress_running", False))
-        self.pool.start(worker)
+        self._run(lambda: Engine.read_sources(tasks), self._apply_readings,
+                  lambda _e: setattr(self, "_progress_running", False))
 
     def _apply_readings(self, readings) -> None:
         self._progress_running = False
@@ -227,11 +247,15 @@ class Controller(QObject):
     # ------------------------------------------------------------------ ai
     def ai_breakdown(self, task: Task) -> None:
         s = self.settings
-        worker = _Worker(lambda: claude_cli.run_breakdown(
-            task, s.claude_path, s.claude_model, s.ai_timeout_seconds))
-        worker.signals.done.connect(lambda b: self._ai_done(task, b))
-        worker.signals.failed.connect(self.ai_failed.emit)
-        self.pool.start(worker)
+        log.info("AI breakdown requested for %r", task.title)
+        self._run(lambda: claude_cli.run_breakdown(
+                      task, s.claude_path, s.claude_model, s.ai_timeout_seconds),
+                  lambda b: self._ai_done(task, b),
+                  self._ai_error)
+
+    def _ai_error(self, message: str) -> None:
+        log.warning("AI breakdown failed: %s", message)
+        self.ai_failed.emit(message)
 
     def _ai_done(self, task: Task, breakdown) -> None:
         self.db.set_setting("ai_used", True)

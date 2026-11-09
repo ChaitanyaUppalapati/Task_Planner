@@ -75,3 +75,39 @@ def test_week_planner_commit(qapp, db, settings):
     w.really_quit = True
     w.close()
     ctl.stop()
+
+
+def test_ai_breakdown_result_reaches_dialog(qapp, db, settings, monkeypatch):
+    """Regression: the worker was garbage-collected and its result silently dropped."""
+    import gc
+    import time as _time
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from taskplanner.ai import claude_cli
+    from taskplanner.core.models import WorkType
+    from taskplanner.ui.controller import Controller
+    from taskplanner.ui.task_dialog import TaskDialog
+
+    def fake(*_a, **_k):
+        _time.sleep(0.3)
+        return claude_cli.Breakdown(WorkType.CODING, 60, [Milestone("AI one", 30),
+                                                          Milestone("AI two", 30)])
+
+    monkeypatch.setattr(claude_cli, "run_breakdown", fake)
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
+    ctl = Controller(db, settings, sampler=ScriptedSampler([]))
+    for _ in range(3):
+        d = TaskDialog(ctl, None)
+        d.title.setText("Essay")
+        d.ai_btn.click()
+        gc.collect()
+        deadline = _time.time() + 5
+        while d._ai_pending and _time.time() < deadline:
+            qapp.processEvents()
+            _time.sleep(0.02)
+        assert not d._ai_pending
+        assert [d.table.item(r, 0).text() for r in range(d.table.rowCount())] == ["AI one", "AI two"]
+        d.reject()
+    ctl.stop()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from datetime import date
 
 from PySide6.QtCore import QDate, Qt, QTimer
@@ -238,6 +239,8 @@ class TaskDialog(QDialog):
         if not self.task.milestones:
             self._add_row(Milestone(title=""))
 
+        self._ai_timer = QTimer(self)
+        self._ai_timer.timeout.connect(self._ai_tick)
         self._predict_timer = QTimer(self)
         self._predict_timer.setSingleShot(True)
         self._predict_timer.timeout.connect(self._predict)
@@ -422,15 +425,25 @@ class TaskDialog(QDialog):
         self._ai_pending = True
         self._ai_task = t
         self.ai_btn.setEnabled(False)
-        self.ai_btn.setText("Claude is thinking…")
+        self._ai_started = time.monotonic()
+        self._ai_tick()
+        self._ai_timer.start(1000)
         self.ctl.ai_breakdown(t)
+
+    def _ai_tick(self) -> None:
+        secs = int(time.monotonic() - getattr(self, "_ai_started", time.monotonic()))
+        self.ai_btn.setText(f"Claude is thinking… {secs}s")
+
+    def _ai_reset_button(self) -> None:
+        self._ai_pending = False
+        self._ai_timer.stop()
+        self.ai_btn.setEnabled(True)
+        self.ai_btn.setText("✨ Break down with Claude")
 
     def _ai_done(self, task: Task, breakdown) -> None:
         if not self._ai_pending or task is not getattr(self, "_ai_task", None):
             return
-        self._ai_pending = False
-        self.ai_btn.setEnabled(True)
-        self.ai_btn.setText("✨ Break down with Claude")
+        self._ai_reset_button()
         keep = [m for m in self.task.milestones if m.progress > 0]
         self.table.setRowCount(0)
         for m in keep + breakdown.milestones:
@@ -449,9 +462,7 @@ class TaskDialog(QDialog):
     def _ai_failed(self, message: str) -> None:
         if not self._ai_pending:
             return
-        self._ai_pending = False
-        self.ai_btn.setEnabled(True)
-        self.ai_btn.setText("✨ Break down with Claude")
+        self._ai_reset_button()
         QMessageBox.warning(self, "Claude breakdown failed", message)
 
     # --------------------------------------------------------------- accept
